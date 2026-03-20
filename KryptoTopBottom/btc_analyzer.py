@@ -3,6 +3,12 @@ import pandas as pd
 import numpy as np
 import datetime
 import sys
+import io
+
+# Force UTF-8 output for Windows Console
+if hasattr(sys.stdout, "reconfigure"):
+    sys.stdout.reconfigure(encoding="utf-8")
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
@@ -30,7 +36,7 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_
     Komponenten:
       1. 200W SMA Abweichung (0-30)
       2. Mayer Multiple (0-20)
-      3. Woechentlicher RSI (0-20)
+      3. Wöchentlicher RSI (0-20)
       4. Drawdown vom ATH (0-20)
       5. Kapitulation & Volumen/Zeit (0-10)
     """
@@ -57,7 +63,7 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_
     elif mayer <= 1.2: s2 = 2
     else: s2 = 0
 
-    # 3. Woechentlicher RSI (0-20)
+    # 3. Wöchentlicher RSI (0-20)
     if weekly_rsi <= 28:   s3 = 20
     elif weekly_rsi <= 33: s3 = 16
     elif weekly_rsi <= 38: s3 = 12
@@ -91,7 +97,7 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_
             if vol_7d < avg_vol * 0.75:
                 s5 += 3
 
-        # c) Volatilitaets-Kompression
+        # c) Volatilitäts-Kompression
         if df_tail_14 is not None:
             vol_short = df_tail_14['Close'].pct_change().std()
             vol_long = df_tail_90['Close'].pct_change().std()
@@ -127,22 +133,22 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_
 
 
 def score_label(score):
-    if score >= 80: return ("EXTREM", "bold white on red")
-    elif score >= 65: return ("STARK", "bold red")
-    elif score >= 45: return ("MODERAT", "bold yellow")
-    elif score >= 25: return ("SCHWACH", "yellow")
-    else: return ("KEIN SIGNAL", "dim")
+    if score >= 80: return ("EXTREM 🔥", "bold white on red")
+    elif score >= 65: return ("STARK 🚨", "bold red")
+    elif score >= 45: return ("MODERAT ⚠️", "bold yellow")
+    elif score >= 25: return ("SCHWACH ⏳", "yellow")
+    else: return ("KEIN SIGNAL 🧊", "dim")
 
 
 def main():
     console = Console()
 
-    with console.status("[bold cyan]Lade historische und aktuelle Marktdaten von Yahoo Finance...", spinner="dots"):
+    with console.status("[bold cyan]Lade historische und aktuelle Marktdaten von Yahoo Finance ⏳...", spinner="dots"):
         btc = yf.Ticker("BTC-USD")
         df = btc.history(period="max")
 
         if df.empty:
-            console.print("[bold red]Fehler: Konnte keine Daten laden.[/bold red]")
+            console.print("[bold red]❌ Fehler: Konnte keine Daten laden.[/bold red]")
             sys.exit(1)
 
         df.index = df.index.tz_localize(None)
@@ -201,7 +207,7 @@ def main():
 
     # 1. Header
     header = Panel(
-        Text("BITCOIN BOTTOM ANALYZER", justify="center", style="bold white on blue"),
+        Text("₿ BITCOIN BOTTOM ANALYZER 📊", justify="center", style="bold white on blue"),
         box=box.DOUBLE_EDGE,
         border_style="blue",
         padding=(1, 1)
@@ -214,7 +220,7 @@ def main():
     raw = score["raw"]
 
     score_text = Text()
-    score_text.append(f"\n  BOTTOM SCORE:  ", style="bold")
+    score_text.append(f"\n  🎯 BOTTOM SCORE:  ", style="bold")
     score_text.append(f" {total} / 100 ", style=f"bold white on {'red' if total >= 65 else 'yellow' if total >= 40 else 'green'}")
     score_text.append(f"  {label}\n\n", style=label_style)
 
@@ -222,40 +228,40 @@ def main():
     bar_filled = int(total / 2)  # 0-50 Zeichen
     bar_empty = 50 - bar_filled
     bar_color = "red" if total >= 65 else "yellow" if total >= 40 else "green"
-    score_text.append(f"  [{'#' * bar_filled}{'.' * bar_empty}]\n\n", style=bar_color)
+    score_text.append(f"  [{'█' * bar_filled}{'░' * bar_empty}]\n\n", style=bar_color)
 
-    # Komponenten-Aufschluesselung mit Klartext
+    # Komponenten-Aufschlüsselung mit Klartext
     dev = raw['deviation']
     mayer_val = raw['mayer_val']
     rsi_val = raw['rsi_val']
     dd_val = raw['drawdown_val']
 
-    # Dynamische Erklaerungen je nach aktuellem Wert
+    # Dynamische Erklärungen je nach aktuellem Wert
     if dev <= 0:
-        sma_explain = f"Preis liegt {abs(dev):.0f}% UNTER dem Langzeit-Durchschnitt. Historisch guenstig!"
+        sma_explain = f"Preis liegt {abs(dev):.0f}% UNTER dem Langzeit-Durchschnitt. Historisch günstig!"
     elif dev <= 15:
-        sma_explain = f"Preis liegt {dev:.0f}% ueber dem Langzeit-Durchschnitt. Nahe dran, aber noch nicht drunter."
+        sma_explain = f"Preis liegt {dev:.0f}% über dem Langzeit-Durchschnitt. Nahe dran, aber noch nicht drunter."
     else:
-        sma_explain = f"Preis liegt {dev:.0f}% ueber dem Langzeit-Durchschnitt. Noch weit von einer Kaufzone entfernt."
+        sma_explain = f"Preis liegt {dev:.0f}% über dem Langzeit-Durchschnitt. Noch weit von einer Kaufzone entfernt."
 
     if mayer_val <= 0.8:
         mayer_explain = f"BTC kostet nur {mayer_val:.2f}x vom Halbjahres-Trend. Unter 0.8 = historisch billig!"
     elif mayer_val <= 1.2:
-        mayer_explain = f"BTC kostet {mayer_val:.2f}x vom Halbjahres-Trend. Fair bewertet, noch kein Schnaeppchen."
+        mayer_explain = f"BTC kostet {mayer_val:.2f}x vom Halbjahres-Trend. Fair bewertet, noch kein Schnäppchen."
     else:
-        mayer_explain = f"BTC kostet {mayer_val:.2f}x vom Halbjahres-Trend. Ueberhitzt/teuer."
+        mayer_explain = f"BTC kostet {mayer_val:.2f}x vom Halbjahres-Trend. Überhitzt/teuer."
 
     if rsi_val <= 33:
-        rsi_explain = f"Markt ist stark ueberverkauft (RSI {rsi_val:.0f}). Verkaeufer werden muede!"
+        rsi_explain = f"Markt ist stark überverkauft (RSI {rsi_val:.0f}). Verkäufer werden müde!"
     elif rsi_val <= 45:
-        rsi_explain = f"Markt zeigt Schwaeche (RSI {rsi_val:.0f}). Noch nicht am Limit."
+        rsi_explain = f"Markt zeigt Schwäche (RSI {rsi_val:.0f}). Noch nicht am Limit."
     else:
-        rsi_explain = f"Markt hat noch Kraft (RSI {rsi_val:.0f}). Kein Ueberverkauf-Signal."
+        rsi_explain = f"Markt hat noch Kraft (RSI {rsi_val:.0f}). Kein Überverkauf-Signal."
 
     if dd_val <= -75:
         dd_explain = f"Preis ist {abs(dd_val):.0f}% unter dem Allzeithoch. Extreme Crash-Tiefe!"
     elif dd_val <= -50:
-        dd_explain = f"Preis ist {abs(dd_val):.0f}% unter dem Allzeithoch. Tiefer Baerenmarkt."
+        dd_explain = f"Preis ist {abs(dd_val):.0f}% unter dem Allzeithoch. Tiefer Bärenmarkt."
     elif dd_val <= -30:
         dd_explain = f"Preis ist {abs(dd_val):.0f}% unter dem Allzeithoch. Korrektur, aber noch nicht tief genug."
     else:
@@ -265,16 +271,16 @@ def main():
     if cap_pts >= 7:
         cap_explain = "Zeichen von Massenpanik erkannt! Hohes Volumen + Markt beruhigt sich."
     elif cap_pts >= 4:
-        cap_explain = "Kapitulations-Signale erkannt (Volumen/Zeit). Markt zeigt Erschoepfung."
+        cap_explain = "Kapitulations-Signale erkannt (Volumen/Zeit). Markt zeigt Erschöpfung."
     else:
-        cap_explain = "Keine Massenpanik erkannt. Markt blutet langsam, kein grosser Ausverkauf."
+        cap_explain = "Keine Massenpanik erkannt. Markt blutet langsam, kein großer Ausverkauf."
 
     components = [
-        ("Langzeit-Trend",   score["sma_dev"],      30, sma_explain),
-        ("Unterbewertung",   score["mayer"],         20, mayer_explain),
-        ("Verkaufsdruck",    score["rsi"],           20, rsi_explain),
-        ("Crash-Tiefe",      score["drawdown"],      20, dd_explain),
-        ("Panik-Verkauf",    score["capitulation"],  10, cap_explain),
+        ("📈 Langzeit-Trend",   score["sma_dev"],      30, sma_explain),
+        ("⚖️ Unterbewertung",   score["mayer"],         20, mayer_explain),
+        ("🩸 Verkaufsdruck",    score["rsi"],           20, rsi_explain),
+        ("💥 Crash-Tiefe",      score["drawdown"],      20, dd_explain),
+        ("😱 Panik-Verkauf",    score["capitulation"],  10, cap_explain),
     ]
 
     for name, pts, max_pts, explain in components:
@@ -282,28 +288,28 @@ def main():
         color = "red" if pct >= 0.7 else "yellow" if pct >= 0.4 else "dim"
         bar_w = 15
         filled = int(pct * bar_w)
-        score_text.append(f"  {name:<18} ", style="bold")
-        score_text.append(f"{'|' * filled}{'.' * (bar_w - filled)} ", style=color)
+        score_text.append(f"  {name:<20} ", style="bold")
+        score_text.append(f"{'█' * filled}{'░' * (bar_w - filled)} ", style=color)
         score_text.append(f"{pts:>2}/{max_pts}\n", style=color)
-        score_text.append(f"  {'':18} {explain}\n", style="dim italic")
+        score_text.append(f"  {'':20} {explain}\n", style="dim italic")
 
     score_text.append(f"\n")
     border = "red" if total >= 65 else "yellow" if total >= 40 else "green"
-    console.print(Panel(score_text, title="[bold]COMPOSITE BOTTOM SCORE[/bold]", border_style=border))
+    console.print(Panel(score_text, title="[bold]✨ COMPOSITE BOTTOM SCORE ✨[/bold]", border_style=border))
 
     # 3. Aktuelle Marktübersicht
     market_table = Table(show_header=False, box=box.SIMPLE, expand=True, border_style="cyan")
     market_table.add_column("Metrik", style="bold")
     market_table.add_column("Wert")
 
-    market_table.add_row("Aktueller Preis", f"[bold green]${current_price:,.2f}[/bold green]")
-    market_table.add_row("Hoechster Preis aller Zeiten", f"${ath:,.2f} [dim](am {ath_date.strftime('%Y-%m-%d')})[/dim]")
-    market_table.add_row("Abstand zum Hoechststand", f"[{'red' if drop_from_ath < -30 else 'yellow' if drop_from_ath < 0 else 'green'}]{drop_from_ath:.2f}%[/{'red' if drop_from_ath < -30 else 'yellow' if drop_from_ath < 0 else 'green'}]")
-    market_table.add_row("Langzeit-Durchschnitt (4 Jahre)", f"[yellow]${sma_200w:,.2f}[/yellow]")
-    market_table.add_row("Halbjahres-Durchschnitt", f"[yellow]${sma_200d:,.2f}[/yellow]")
-    market_table.add_row("Tage seit Hoechststand", f"{days_since_ath}")
+    market_table.add_row("💲 Aktueller Preis", f"[bold green]${current_price:,.2f}[/bold green]")
+    market_table.add_row("👑 Höchster Preis (ATH)", f"${ath:,.2f} [dim](am {ath_date.strftime('%Y-%m-%d')})[/dim]")
+    market_table.add_row("📉 Abstand zum ATH", f"[{'red' if drop_from_ath < -30 else 'yellow' if drop_from_ath < 0 else 'green'}]{drop_from_ath:.2f}%[/{'red' if drop_from_ath < -30 else 'yellow' if drop_from_ath < 0 else 'green'}]")
+    market_table.add_row("🌊 Langzeit-Trend (200W)", f"[yellow]${sma_200w:,.2f}[/yellow]")
+    market_table.add_row("🏄 Halbjahres-Trend (200D)", f"[yellow]${sma_200d:,.2f}[/yellow]")
+    market_table.add_row("📅 Tage seit ATH", f"{days_since_ath}")
 
-    console.print(Panel(market_table, title="[bold]Aktuelle Marktdaten[/bold]", border_style="cyan"))
+    console.print(Panel(market_table, title="[bold]🌐 Aktuelle Marktdaten[/bold]", border_style="cyan"))
 
     # 4. Makro-Trend Status (BMSB)
     trend_text = Text()
@@ -311,26 +317,26 @@ def main():
         trend_text.append(f"Trend-Grenze liegt bei: ${bmsb_lower:,.0f} - ${bmsb_upper:,.0f}\n\n")
 
         if current_price > bmsb_upper:
-            trend_text.append("AUFWAERTSTREND INTAKT\n", style="bold green")
-            trend_text.append("Der Preis haelt sich ueber der Trend-Grenze. Solange das so bleibt,\n")
-            trend_text.append("ist der uebergeordnete Trend positiv. Bodensuche ist hier zweitrangig.")
+            trend_text.append("🚀 AUFWÄRTSTREND INTAKT 🟢\n", style="bold green")
+            trend_text.append("Der Preis hält sich über der Trend-Grenze. Solange das so bleibt,\n")
+            trend_text.append("ist der übergeordnete Trend positiv. Bodensuche ist hier zweitrangig.")
             trend_color = "green"
         elif current_price < bmsb_lower:
-            trend_text.append("ABWAERTSTREND / KORREKTUR\n", style="bold red")
+            trend_text.append("🐻 ABWÄRTSTREND / KORREKTUR 🔴\n", style="bold red")
             trend_text.append("Der Preis ist unter die Trend-Grenze gefallen.\n")
-            trend_text.append("Das bedeutet: Der Markt ist im Abwaertstrend. Jetzt wird der Bottom Score\n")
-            trend_text.append("oben relevant - er zeigt dir, wie nah wir am moeglichen Boden sind.")
+            trend_text.append("Das bedeutet: Der Markt ist im Abwärtstrend. Jetzt wird der Bottom Score\n")
+            trend_text.append("oben relevant - er zeigt dir, wie nah wir am möglichen Boden sind.")
             trend_color = "red"
         else:
-            trend_text.append("ENTSCHEIDUNGSZONE\n", style="bold yellow")
-            trend_text.append("Der Preis kaempft genau an der Trend-Grenze.\n")
-            trend_text.append("Hier entscheidet sich, ob der Markt wieder nach oben dreht oder weiter faellt.")
+            trend_text.append("⚖️ ENTSCHEIDUNGSZONE 🟡\n", style="bold yellow")
+            trend_text.append("Der Preis kämpft genau an der Trend-Grenze.\n")
+            trend_text.append("Hier entscheidet sich, ob der Markt wieder nach oben dreht oder weiter fällt.")
             trend_color = "yellow"
     else:
-        trend_text.append("Nicht genug historische Daten fuer Trend-Analyse.", style="dim")
+        trend_text.append("Nicht genug historische Daten für Trend-Analyse.", style="dim")
         trend_color = "dim"
 
-    console.print(Panel(trend_text, title="[bold]Makro-Trend Status[/bold]", border_style=trend_color))
+    console.print(Panel(trend_text, title="[bold]🧭 Makro-Trend Status[/bold]", border_style=trend_color))
 
     # 5. Kaufzonen Radar
     zones_table = Table(box=box.MINIMAL_DOUBLE_HEAD, expand=True)
@@ -341,40 +347,40 @@ def main():
 
     def get_status(lower, upper, current, zone_num):
         if lower < current <= upper:
-            return f"[bold green reverse] AKTIV (ZONE {zone_num}) [/bold green reverse]"
+            return f"[bold green reverse] 🎯 AKTIV (ZONE {zone_num}) [/bold green reverse]"
         return "[dim]-[/dim]"
 
     is_zone4 = current_price <= zone4_upper
 
     zones_table.add_row(
-        "[blue]Zone 1 (Soft Floor)[/blue]",
+        "☁️ [blue]Zone 1 (Soft Floor)[/blue]",
         f"${zone1_lower:,.0f} - ${zone1_upper:,.0f}",
-        "Erste Preisunterstuetzung",
+        "Erste Preisunterstützung",
         get_status(zone1_lower, zone1_upper, current_price, 1)
     )
     zones_table.add_row(
-        "[yellow]Zone 2 (Hard Floor)[/yellow]",
+        "🧱 [yellow]Zone 2 (Hard Floor)[/yellow]",
         f"${zone2_lower:,.0f} - ${zone2_upper:,.0f}",
         "Historischer Kernbereich",
         get_status(zone2_lower, zone2_upper, current_price, 2)
     )
     zones_table.add_row(
-        "[red]Zone 3 (Max Pain)[/red]",
+        "🩸 [red]Zone 3 (Max Pain)[/red]",
         f"${zone3_lower:,.0f} - ${zone3_upper:,.0f}",
         "Stark unterbewerteter Bereich",
         get_status(zone3_lower, zone3_upper, current_price, 3)
     )
     zones_table.add_row(
-        "[bold magenta]Zone 4 (Black Swan)[/bold magenta]",
+        "🦢 [bold magenta]Zone 4 (Black Swan)[/bold magenta]",
         f"${zone4_lower:,.0f} - ${zone4_upper:,.0f}",
         "Historisch extrem selten",
-        "[bold magenta reverse] AKTIV (ZONE 4) [/bold magenta reverse]" if is_zone4 else "[dim]-[/dim]"
+        "[bold magenta reverse] 🎯 AKTIV (ZONE 4) [/bold magenta reverse]" if is_zone4 else "[dim]-[/dim]"
     )
 
-    console.print(Panel(zones_table, title="[bold]Kaufzonen-Radar (200W SMA)[/bold]", border_style="green"))
+    console.print(Panel(zones_table, title="[bold]📡 Kaufzonen-Radar (200W SMA)[/bold]", border_style="green"))
 
     if current_price > zone1_upper:
-        console.print("[bold red]>>> AKTUELLER PREIS IST UEBER ALLEN KAUFZONEN <<<[/bold red]", justify="center")
+        console.print("[bold red]⚠️ >>> AKTUELLER PREIS IST ÜBER ALLEN KAUFZONEN <<< ⚠️[/bold red]", justify="center")
 
     # 6. FAZIT (kombiniert Zone + Score zu einer Aussage)
     if current_price > zone1_upper:
@@ -393,77 +399,77 @@ def main():
 
     fazit_text = Text()
     if active_zone == 0:
-        fazit_text.append("KEIN HANDLUNGSBEDARF\n\n", style="bold dim")
-        fazit_text.append("Der Preis liegt ueber allen Kaufzonen. Abwarten.")
+        fazit_text.append("🧊 KEIN HANDLUNGSBEDARF\n\n", style="bold dim")
+        fazit_text.append("Der Preis liegt über allen Kaufzonen. Abwarten.")
         fazit_border = "dim"
     elif active_zone == 1:
         if total < 45:
-            fazit_text.append("BEOBACHTEN - NOCH NICHT KAUFEN\n\n", style="bold yellow")
+            fazit_text.append("👀 BEOBACHTEN - NOCH NICHT KAUFEN\n\n", style="bold yellow")
             fazit_text.append(f"Der Preis ist in {zone_names[1]}, aber der Score steht bei {total}/100.\n")
             fazit_text.append("Historisch war ein Einstieg in Zone 1 erst ab Score 45+ lohnend.\n")
             fazit_text.append("Geduld - der Markt braucht noch Zeit.")
             fazit_border = "yellow"
         elif total < 65:
-            fazit_text.append("ERSTE POSITIONEN MOEGLICH\n\n", style="bold yellow")
+            fazit_text.append("🌱 ERSTE POSITIONEN MÖGLICH\n\n", style="bold yellow")
             fazit_text.append(f"{zone_names[1]} aktiv mit Score {total}/100.\n")
             fazit_text.append("Der Markt zeigt erste Bodenbildung. Kleine Positionen oder DCA-Start denkbar.")
             fazit_border = "yellow"
         else:
-            fazit_text.append("KAUFSIGNAL\n\n", style="bold green")
+            fazit_text.append("✅ KAUFSIGNAL\n\n", style="bold green")
             fazit_text.append(f"{zone_names[1]} aktiv mit starkem Score {total}/100.\n")
             fazit_text.append("DCA starten oder Positionen aufbauen.")
             fazit_border = "green"
     elif active_zone == 2:
         if total < 45:
-            fazit_text.append("KERNZONE ERREICHT - SCORE BAUT SICH AUF\n\n", style="bold yellow")
+            fazit_text.append("⏳ KERNZONE ERREICHT - SCORE BAUT SICH AUF\n\n", style="bold yellow")
             fazit_text.append(f"Der Preis ist in {zone_names[2]}, Score bei {total}/100.\n")
             fazit_text.append("Erste kleine Positionen denkbar. Markt noch nicht komplett kapituliert.")
             fazit_border = "yellow"
         elif total < 65:
-            fazit_text.append("STARKE KAUFZONE\n\n", style="bold red")
+            fazit_text.append("🛒 STARKE KAUFZONE\n\n", style="bold red")
             fazit_text.append(f"{zone_names[2]} aktiv mit Score {total}/100.\n")
             fazit_text.append("Solide Akkumulationszone. Positionen aufbauen.")
             fazit_border = "red"
         else:
-            fazit_text.append("HISTORISCHE KAUFGELEGENHEIT\n\n", style="bold white on red")
+            fazit_text.append("🔥 HISTORISCHE KAUFGELEGENHEIT\n\n", style="bold white on red")
             fazit_text.append(f"{zone_names[2]} aktiv mit Score {total}/100.\n")
             fazit_text.append("Historisch einer der besten Einstiegspunkte. Aggressiv akkumulieren.")
             fazit_border = "red"
     elif active_zone == 3:
         if total < 65:
-            fazit_text.append("EXTREME UNTERBEWERTUNG\n\n", style="bold red")
+            fazit_text.append("🩸 EXTREME UNTERBEWERTUNG\n\n", style="bold red")
             fazit_text.append(f"{zone_names[3]} aktiv, Score bei {total}/100.\n")
-            fazit_text.append("Preislich extrem guenstig. Starke Akkumulation sinnvoll.")
+            fazit_text.append("Preislich extrem günstig. Starke Akkumulation sinnvoll.")
             fazit_border = "red"
         else:
-            fazit_text.append("GENERATIONSKAUFGELEGENHEIT\n\n", style="bold white on red")
+            fazit_text.append("💎 GENERATIONSKAUFGELEGENHEIT\n\n", style="bold white on red")
             fazit_text.append(f"{zone_names[3]} aktiv mit Score {total}/100.\n")
             fazit_text.append("Kommt nur alle paar Jahre vor. Maximale Akkumulation.")
             fazit_border = "red"
     else:
-        fazit_text.append("BLACK SWAN - EXTREMSITUATION\n\n", style="bold white on magenta")
+        fazit_text.append("🦢 BLACK SWAN - EXTREMSITUATION\n\n", style="bold white on magenta")
         fazit_text.append(f"{zone_names[4]} aktiv, Score bei {total}/100.\n")
         fazit_text.append("Historisch extrem selten. Wenn Fundamentaldaten intakt:\n")
         fazit_text.append("Beste Kaufgelegenheit aller Zeiten.")
         fazit_border = "magenta"
 
-    console.print(Panel(fazit_text, title="[bold]FAZIT[/bold]", border_style=fazit_border))
+    console.print(Panel(fazit_text, title="[bold]💡 FAZIT[/bold]", border_style=fazit_border))
 
     # 7. Score-Legende
     interp_text = Text()
     interp_text.append("Score-Skala:\n\n", style="bold")
     interp_text.append("  80-100  ", style="bold red")
-    interp_text.append("EXTREM\n")
+    interp_text.append("EXTREM 🔥\n")
     interp_text.append("  65-79   ", style="bold red")
-    interp_text.append("STARK\n")
+    interp_text.append("STARK 🚨\n")
     interp_text.append("  45-64   ", style="bold yellow")
-    interp_text.append("MODERAT\n")
+    interp_text.append("MODERAT ⚠️\n")
     interp_text.append("  25-44   ", style="yellow")
-    interp_text.append("SCHWACH\n")
+    interp_text.append("SCHWACH ⏳\n")
     interp_text.append("   0-24   ", style="dim")
-    interp_text.append("KEIN SIGNAL\n")
+    interp_text.append("KEIN SIGNAL 🧊\n")
 
-    console.print(Panel(interp_text, title="[bold]Legende[/bold]", border_style="dim"))
+    console.print(Panel(interp_text, title="[bold]📜 Legende[/bold]", border_style="dim"))
 
     console.print("\n[dim italic]Hinweis: Keine Finanzberatung. Composite Score basiert auf 200W SMA, Mayer Multiple, RSI, Drawdown, Volumen- und Zeit-Analyse.[/dim italic]", justify="center")
 
