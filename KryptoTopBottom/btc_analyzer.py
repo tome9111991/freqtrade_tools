@@ -151,7 +151,7 @@ def main():
         today = datetime.datetime.now()
 
         ath = df['High'].max()
-        ath_date = df[df['High'] == ath].index[0]
+        ath_date = df[df['High'] == ath].index[-1]
         drop_from_ath = ((current_price - ath) / ath) * 100
         days_since_ath = (today - ath_date).days
 
@@ -340,7 +340,7 @@ def main():
     zones_table.add_column("Status", justify="center")
 
     def get_status(lower, upper, current, zone_num):
-        if lower <= current <= upper:
+        if lower < current <= upper:
             return f"[bold green reverse] AKTIV (ZONE {zone_num}) [/bold green reverse]"
         return "[dim]-[/dim]"
 
@@ -349,25 +349,25 @@ def main():
     zones_table.add_row(
         "[blue]Zone 1 (Soft Floor)[/blue]",
         f"${zone1_lower:,.0f} - ${zone1_upper:,.0f}",
-        "Akkumulation beginnt",
+        "Erste Preisunterstuetzung",
         get_status(zone1_lower, zone1_upper, current_price, 1)
     )
     zones_table.add_row(
         "[yellow]Zone 2 (Hard Floor)[/yellow]",
         f"${zone2_lower:,.0f} - ${zone2_upper:,.0f}",
-        "Historisches Hauptziel",
+        "Historischer Kernbereich",
         get_status(zone2_lower, zone2_upper, current_price, 2)
     )
     zones_table.add_row(
         "[red]Zone 3 (Max Pain)[/red]",
         f"${zone3_lower:,.0f} - ${zone3_upper:,.0f}",
-        "Extreme Unterbewertung",
+        "Stark unterbewerteter Bereich",
         get_status(zone3_lower, zone3_upper, current_price, 3)
     )
     zones_table.add_row(
         "[bold magenta]Zone 4 (Black Swan)[/bold magenta]",
         f"${zone4_lower:,.0f} - ${zone4_upper:,.0f}",
-        "Extreme Ausnahmesituation",
+        "Historisch extrem selten",
         "[bold magenta reverse] AKTIV (ZONE 4) [/bold magenta reverse]" if is_zone4 else "[dim]-[/dim]"
     )
 
@@ -376,19 +376,92 @@ def main():
     if current_price > zone1_upper:
         console.print("[bold red]>>> AKTUELLER PREIS IST UEBER ALLEN KAUFZONEN <<<[/bold red]", justify="center")
 
-    # 6. Score-Interpretation
+    # 6. FAZIT (kombiniert Zone + Score zu einer Aussage)
+    if current_price > zone1_upper:
+        active_zone = 0
+    elif current_price >= zone1_lower:
+        active_zone = 1
+    elif current_price >= zone2_lower:
+        active_zone = 2
+    elif current_price >= zone3_lower:
+        active_zone = 3
+    else:
+        active_zone = 4
+
+    zone_names = {0: "", 1: "Zone 1 (Soft Floor)", 2: "Zone 2 (Hard Floor)",
+                  3: "Zone 3 (Max Pain)", 4: "Zone 4 (Black Swan)"}
+
+    fazit_text = Text()
+    if active_zone == 0:
+        fazit_text.append("KEIN HANDLUNGSBEDARF\n\n", style="bold dim")
+        fazit_text.append("Der Preis liegt ueber allen Kaufzonen. Abwarten.")
+        fazit_border = "dim"
+    elif active_zone == 1:
+        if total < 45:
+            fazit_text.append("BEOBACHTEN - NOCH NICHT KAUFEN\n\n", style="bold yellow")
+            fazit_text.append(f"Der Preis ist in {zone_names[1]}, aber der Score steht bei {total}/100.\n")
+            fazit_text.append("Historisch war ein Einstieg in Zone 1 erst ab Score 45+ lohnend.\n")
+            fazit_text.append("Geduld - der Markt braucht noch Zeit.")
+            fazit_border = "yellow"
+        elif total < 65:
+            fazit_text.append("ERSTE POSITIONEN MOEGLICH\n\n", style="bold yellow")
+            fazit_text.append(f"{zone_names[1]} aktiv mit Score {total}/100.\n")
+            fazit_text.append("Der Markt zeigt erste Bodenbildung. Kleine Positionen oder DCA-Start denkbar.")
+            fazit_border = "yellow"
+        else:
+            fazit_text.append("KAUFSIGNAL\n\n", style="bold green")
+            fazit_text.append(f"{zone_names[1]} aktiv mit starkem Score {total}/100.\n")
+            fazit_text.append("DCA starten oder Positionen aufbauen.")
+            fazit_border = "green"
+    elif active_zone == 2:
+        if total < 45:
+            fazit_text.append("KERNZONE ERREICHT - SCORE BAUT SICH AUF\n\n", style="bold yellow")
+            fazit_text.append(f"Der Preis ist in {zone_names[2]}, Score bei {total}/100.\n")
+            fazit_text.append("Erste kleine Positionen denkbar. Markt noch nicht komplett kapituliert.")
+            fazit_border = "yellow"
+        elif total < 65:
+            fazit_text.append("STARKE KAUFZONE\n\n", style="bold red")
+            fazit_text.append(f"{zone_names[2]} aktiv mit Score {total}/100.\n")
+            fazit_text.append("Solide Akkumulationszone. Positionen aufbauen.")
+            fazit_border = "red"
+        else:
+            fazit_text.append("HISTORISCHE KAUFGELEGENHEIT\n\n", style="bold white on red")
+            fazit_text.append(f"{zone_names[2]} aktiv mit Score {total}/100.\n")
+            fazit_text.append("Historisch einer der besten Einstiegspunkte. Aggressiv akkumulieren.")
+            fazit_border = "red"
+    elif active_zone == 3:
+        if total < 65:
+            fazit_text.append("EXTREME UNTERBEWERTUNG\n\n", style="bold red")
+            fazit_text.append(f"{zone_names[3]} aktiv, Score bei {total}/100.\n")
+            fazit_text.append("Preislich extrem guenstig. Starke Akkumulation sinnvoll.")
+            fazit_border = "red"
+        else:
+            fazit_text.append("GENERATIONSKAUFGELEGENHEIT\n\n", style="bold white on red")
+            fazit_text.append(f"{zone_names[3]} aktiv mit Score {total}/100.\n")
+            fazit_text.append("Kommt nur alle paar Jahre vor. Maximale Akkumulation.")
+            fazit_border = "red"
+    else:
+        fazit_text.append("BLACK SWAN - EXTREMSITUATION\n\n", style="bold white on magenta")
+        fazit_text.append(f"{zone_names[4]} aktiv, Score bei {total}/100.\n")
+        fazit_text.append("Historisch extrem selten. Wenn Fundamentaldaten intakt:\n")
+        fazit_text.append("Beste Kaufgelegenheit aller Zeiten.")
+        fazit_border = "magenta"
+
+    console.print(Panel(fazit_text, title="[bold]FAZIT[/bold]", border_style=fazit_border))
+
+    # 7. Score-Legende
     interp_text = Text()
     interp_text.append("Score-Skala:\n\n", style="bold")
     interp_text.append("  80-100  ", style="bold red")
-    interp_text.append("EXTREM - Historischer Boden sehr wahrscheinlich. Aggressive Akkumulation.\n")
+    interp_text.append("EXTREM\n")
     interp_text.append("  65-79   ", style="bold red")
-    interp_text.append("STARK - Tiefe Baerenmarkt-Zone. DCA starten/erhoehen.\n")
+    interp_text.append("STARK\n")
     interp_text.append("  45-64   ", style="bold yellow")
-    interp_text.append("MODERAT - Baerenmarkt, Annaeherung an Boden. Beobachten, kleine Positionen.\n")
+    interp_text.append("MODERAT\n")
     interp_text.append("  25-44   ", style="yellow")
-    interp_text.append("SCHWACH - Fruehe Korrektur. Noch zu frueh fuer grosse Kaeufe.\n")
+    interp_text.append("SCHWACH\n")
     interp_text.append("   0-24   ", style="dim")
-    interp_text.append("KEIN SIGNAL - Bullenmarkt oder fruehe Korrektur. Abwarten.\n")
+    interp_text.append("KEIN SIGNAL\n")
 
     console.print(Panel(interp_text, title="[bold]Legende[/bold]", border_style="dim"))
 
