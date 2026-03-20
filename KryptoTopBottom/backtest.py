@@ -167,7 +167,9 @@ def new_analysis(df, test_date):
 
     price = data['Close'].iloc[-1]
     ath = data['High'].max()
+    ath_date = data[data['High'] == ath].index[0]
     drawdown = ((price - ath) / ath) * 100
+    days_since_ath = (test_date - ath_date).days
 
     weekly = data['Close'].resample('W').last().dropna()
     sma_200w = get_sma(weekly, 200)
@@ -248,6 +250,15 @@ def new_analysis(df, test_date):
             vol_long = data['Close'].tail(90).pct_change().std()
             if vol_long > 0 and vol_short / vol_long < 0.55:
                 s5 += 3
+
+    # d) Chronische Kapitulation (Zeit seit ATH)
+    if days_since_ath > 300 and drawdown <= -30:
+        if days_since_ath > 500:
+            s5 += 3
+        elif days_since_ath > 400:
+            s5 += 2
+        else:
+            s5 += 1
 
     s5 = min(s5, 10)
     total = s1 + s2 + s3 + s4 + s5

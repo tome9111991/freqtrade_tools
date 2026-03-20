@@ -23,7 +23,7 @@ def compute_rsi(series, period=14):
     return 100 - (100 / (1 + rs))
 
 
-def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, df_tail_90, df_tail_30, df_tail_14, df_tail_7):
+def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_ath, df_tail_90, df_tail_30, df_tail_14, df_tail_7):
     """
     Berechnet den Composite Bottom Score (0-100).
 
@@ -32,7 +32,7 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, df_tail_90,
       2. Mayer Multiple (0-20)
       3. Woechentlicher RSI (0-20)
       4. Drawdown vom ATH (0-20)
-      5. Kapitulation & Volumen (0-10)
+      5. Kapitulation & Volumen/Zeit (0-10)
     """
     deviation = ((price - sma_200w) / sma_200w) * 100 if sma_200w > 0 else 0
     mayer = price / sma_200d if sma_200d > 0 else 1.0
@@ -97,6 +97,15 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, df_tail_90,
             vol_long = df_tail_90['Close'].pct_change().std()
             if vol_long > 0 and vol_short / vol_long < 0.55:
                 s5 += 3
+
+    # d) Chronische Kapitulation (Zeit seit ATH)
+    if days_since_ath > 300 and drawdown <= -30:
+        if days_since_ath > 500:
+            s5 += 3
+        elif days_since_ath > 400:
+            s5 += 2
+        else:
+            s5 += 1
 
     s5 = min(s5, 10)
     total = s1 + s2 + s3 + s4 + s5
@@ -183,7 +192,7 @@ def main():
 
         score = compute_bottom_score(
             current_price, sma_200w, sma_200d, weekly_rsi, ath,
-            tail_90, tail_30, tail_14, tail_7,
+            days_since_ath, tail_90, tail_30, tail_14, tail_7,
         )
 
     # =========================================================================
@@ -256,7 +265,7 @@ def main():
     if cap_pts >= 7:
         cap_explain = "Zeichen von Massenpanik erkannt! Hohes Volumen + Markt beruhigt sich."
     elif cap_pts >= 4:
-        cap_explain = "Erste Panik-Signale erkannt (Volumen-Spike). Markt noch unruhig."
+        cap_explain = "Kapitulations-Signale erkannt (Volumen/Zeit). Markt zeigt Erschoepfung."
     else:
         cap_explain = "Keine Massenpanik erkannt. Markt blutet langsam, kein grosser Ausverkauf."
 
@@ -383,7 +392,7 @@ def main():
 
     console.print(Panel(interp_text, title="[bold]Legende[/bold]", border_style="dim"))
 
-    console.print("\n[dim italic]Hinweis: Keine Finanzberatung. Composite Score basiert auf 200W SMA, Mayer Multiple, RSI, Drawdown und Volumen-Analyse.[/dim italic]", justify="center")
+    console.print("\n[dim italic]Hinweis: Keine Finanzberatung. Composite Score basiert auf 200W SMA, Mayer Multiple, RSI, Drawdown, Volumen- und Zeit-Analyse.[/dim italic]", justify="center")
 
 
 if __name__ == "__main__":
