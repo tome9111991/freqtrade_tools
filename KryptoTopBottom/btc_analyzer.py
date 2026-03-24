@@ -49,6 +49,37 @@ def timing_factor(days_since_ath, avg_cycle_days=360):
     else:             return 0.50   # Zu frueh im Zyklus
 
 
+def crash_velocity_factor(price, df_tail_30, days_since_ath, avg_cycle_days):
+    """
+    Crash-Velocity-Filter: Erkennt aktive Crashes in unreifen Zyklen.
+
+    Problem: Zwischen-Crashs (z.B. Luna Mai 2022) erzeugen hohe Raw-Scores
+    durch starken Drawdown, niedrigen RSI und Mayer-Multiple. Der
+    timing_factor allein reicht nicht, wenn der Raw-Score 80+ ist.
+
+    Loesung: Wenn der Preis in den letzten 30 Tagen stark gefallen ist
+    UND der Zyklus noch nicht reif genug ist (< 85%), wird der Score
+    zusaetzlich reduziert.
+
+    Bei reifen Zyklen (>= 85%) wird NICHT bestraft, da ein steiler
+    Drop dort eher eine finale Kapitulation ist (z.B. Nov 2018).
+    """
+    if df_tail_30 is None or len(df_tail_30) < 20:
+        return 1.0
+
+    price_30d_ago = df_tail_30['Close'].iloc[0]
+    drop_30d = ((price - price_30d_ago) / price_30d_ago) * 100
+    pct_cycle = days_since_ath / avg_cycle_days if avg_cycle_days > 0 else 0
+
+    if drop_30d <= -20 and pct_cycle < 0.85:
+        if drop_30d <= -30:
+            return 0.50    # Extremer Crash in unreifem Zyklus
+        else:
+            return 0.65    # Starker Crash in unreifem Zyklus
+
+    return 1.0
+
+
 def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_ath,
                          df_tail_90, df_tail_30, df_tail_14, df_tail_7,
                          avg_cycle_days=360):
@@ -142,12 +173,17 @@ def compute_bottom_score(price, sma_200w, sma_200d, weekly_rsi, ath, days_since_
 
     # Zyklus-Multiplikator (Backtest-validiert, dynamisch)
     factor = timing_factor(days_since_ath, avg_cycle_days)
-    adjusted = int(round(total * factor))
+
+    # Crash-Velocity-Filter: Bestraft steile Drops in unreifen Zyklen
+    crash_factor = crash_velocity_factor(price, df_tail_30, days_since_ath, avg_cycle_days)
+
+    adjusted = int(round(total * factor * crash_factor))
 
     return {
         "total": total,
         "adjusted": adjusted,
         "factor": factor,
+        "crash_factor": crash_factor,
         "sma_dev": s1,
         "mayer": s2,
         "rsi": s3,
@@ -290,6 +326,117 @@ def calculate_dynamic_cycle_timing(df):
     min_days = min(bear_markets)
     max_days = max(bear_markets)
     return int(min_days), int(max_days), int(avg_days), len(bear_markets)
+
+
+def analyze_bear_market_drawdowns(df):
+    """
+    Analysiert alle ABGESCHLOSSENEN historischen Bärenmärkte und gibt
+    die maximalen Drawdowns (in %) pro Zyklus zurück.
+
+    Verwendet nur abgeschlossene Bärenmärkte (Recovery > -25%),
+    damit der aktuelle Zyklus die Schätzung nicht verzerrt.
+    """
+    running_max = df['High'].cummax()
+    drawdown = (df['Low'] - running_max) / running_max * 100
+
+    completed_bears = []
+    in_bear = False
+    current_max_dd = 0
+
+    for date, row in df.iterrows():
+        dd = drawdown.loc[date]
+
+        if dd < -50:
+            if not in_bear:
+                in_bear = True
+                current_max_dd = dd
+            else:
+                if dd < current_max_dd:
+                    current_max_dd = dd
+        elif in_bear and dd > -25:
+            completed_bears.append(current_max_dd)
+            in_bear = False
+            current_max_dd = 0
+
+    return completed_bears
+
+
+def compute_entry_probability(bear_drawdowns, entry_prices, ath, current_price,
+                              days_since_ath, avg_cycle_days):
+    """
+    Schätzt die Wahrscheinlichkeit, dass BTC jedes Entry-Level erreicht.
+
+    Methode:
+    1. Historische Drawdown-Häufigkeit (gewichtet: neuere Zyklen zählen mehr
+       wegen Market Maturation / institutioneller Adoption)
+    2. Cycle-Timing-Faktor (reifer Zyklus → höhere Wahrscheinlichkeit)
+    3. Bereits erreicht → 99%
+
+    Gibt dict {target_score: probability_0_to_1} zurück.
+    """
+    if not bear_drawdowns:
+        return {t: None for t in entry_prices}
+
+    probabilities = {}
+    n = len(bear_drawdowns)
+
+    # Lineare Gewichtung: neuere Zyklen sind relevanter
+    # z.B. 3 Zyklen → Gewichte [1, 2, 3], neuester zählt 3x so viel wie ältester
+    weights = [i + 1 for i in range(n)]
+    total_weight = sum(weights)
+
+    # Cycle Timing Multiplier
+    cycle_pct = days_since_ath / avg_cycle_days if avg_cycle_days > 0 else 0
+    if cycle_pct >= 0.90:
+        timing_mult = 1.15   # Im klassischen Bottom-Fenster
+    elif cycle_pct >= 0.70:
+        timing_mult = 1.05   # Nahe am Fenster
+    elif cycle_pct >= 0.50:
+        timing_mult = 0.90   # Mittlere Reife
+    else:
+        timing_mult = 0.75   # Zu früh für echten Boden
+
+    for target, ep in entry_prices.items():
+        if ep is None:
+            probabilities[target] = None
+            continue
+
+        # Bereits erreicht?
+        if current_price <= ep:
+            probabilities[target] = 0.99
+            continue
+
+        # Erforderlicher Drawdown vom ATH
+        required_dd = ((ep - ath) / ath) * 100
+
+        # Gewichtete historische Wahrscheinlichkeit
+        weighted_hits = sum(
+            w for dd, w in zip(bear_drawdowns, weights) if dd <= required_dd
+        )
+        base_prob = weighted_hits / total_weight
+
+        # Timing anwenden
+        prob = base_prob * timing_mult
+
+        # Clamp auf 5%-95%
+        prob = max(0.05, min(prob, 0.95))
+
+        probabilities[target] = prob
+
+    return probabilities
+
+
+def prob_label(prob):
+    """Gibt Label und Farbe für eine Wahrscheinlichkeit zurück."""
+    pct = prob * 100
+    if pct >= 70:
+        return "Sehr wahrsch.", "green"
+    elif pct >= 50:
+        return "Wahrscheinlich", "yellow"
+    elif pct >= 30:
+        return "Möglich", "bright_red"
+    else:
+        return "Unwahrsch.", "red"
 
 
 def generate_llm_prompt(data):
@@ -507,6 +654,9 @@ def main():
     # --- DYNAMISCHE ZYKLUSLAENGE ---
     min_d, max_d, avg_d, cycles_found = calculate_dynamic_cycle_timing(df)
 
+    # --- HISTORISCHE DRAWDOWN-ANALYSE ---
+    bear_drawdowns = analyze_bear_market_drawdowns(df)
+
     # --- COMPOSITE BOTTOM SCORE ---
     score = compute_bottom_score(
         current_price, sma_200w, sma_200d, weekly_rsi, ath,
@@ -532,6 +682,7 @@ def main():
     total = score["total"]
     adjusted = score["adjusted"]
     factor = score["factor"]
+    crash_f = score.get("crash_factor", 1.0)
     label, label_style = score_label(adjusted)
     raw = score["raw"]
 
@@ -539,7 +690,11 @@ def main():
     score_text.append(f"\n  🎯 BOTTOM SCORE:  ", style="bold")
     score_text.append(f" {adjusted} / 100 ", style=f"bold white on {'red' if adjusted >= 65 else 'yellow' if adjusted >= 40 else 'green'}")
     score_text.append(f"  {label}\n", style=label_style)
-    score_text.append(f"  (Raw: {total} x{factor:.2f} Zyklus-Faktor = {adjusted})\n\n", style="dim")
+    if crash_f < 1.0:
+        score_text.append(f"  (Raw: {total} x{factor:.2f} Zyklus x{crash_f:.2f} Crash-Velocity = {adjusted})\n", style="dim")
+        score_text.append(f"  ⚡ Crash-Velocity aktiv: Steiler Drop in unreifem Zyklus erkannt!\n\n", style="bold yellow")
+    else:
+        score_text.append(f"  (Raw: {total} x{factor:.2f} Zyklus-Faktor = {adjusted})\n\n", style="dim")
 
     # Balken-Visualisierung
     bar_filled = int(adjusted / 2)  # 0-50 Zeichen
@@ -721,11 +876,18 @@ def main():
         avg_cycle_days=avg_d,
     )
 
+    # Wahrscheinlichkeitsschätzung für jedes Entry-Level
+    entry_probs = compute_entry_probability(
+        bear_drawdowns, entry_prices, ath, current_price,
+        days_since_ath, avg_d,
+    )
+
     entry_table = Table(box=box.MINIMAL_DOUBLE_HEAD, expand=True)
     entry_table.add_column("Ziel-Score", style="bold", width=14)
-    entry_table.add_column("Signal", width=22)
+    entry_table.add_column("Signal", width=20)
     entry_table.add_column("Entry-Preis", justify="right", width=14)
     entry_table.add_column("Abstand", justify="right", width=12)
+    entry_table.add_column("Wahrscheinl.", justify="center", width=20)
     entry_table.add_column("Status", justify="center", width=16)
 
     signal_names = {
@@ -747,17 +909,29 @@ def main():
                 status = f"[dim]noch ${current_price - ep:,.0f} entfernt[/dim]"
                 dist_str = f"[yellow]+{dist:.1f}% drüber[/yellow]"
 
+            # Wahrscheinlichkeits-Anzeige
+            prob = entry_probs.get(target)
+            if prob is not None:
+                pct = prob * 100
+                bar_filled = int(round(prob * 10))
+                bar_empty = 10 - bar_filled
+                plabel, pcolor = prob_label(prob)
+                prob_str = f"[{pcolor}]{'█' * bar_filled}{'░' * bar_empty} {pct:.0f}%[/{pcolor}]\n[dim]{plabel}[/dim]"
+            else:
+                prob_str = "[dim]N/A[/dim]"
+
             entry_table.add_row(
                 f"{'🟡' if target == 45 else '🟠' if target == 55 else '🔴'} Score {target}+",
                 f"{sig_label}\n[dim]{sig_action}[/dim]",
                 f"[bold]${ep:,.0f}[/bold]",
                 dist_str,
+                prob_str,
                 status,
             )
         else:
             entry_table.add_row(
                 f"Score {target}+", sig_label,
-                "[dim]N/A[/dim]", "-",
+                "[dim]N/A[/dim]", "-", "[dim]N/A[/dim]",
                 "[dim]Nicht berechenbar[/dim]",
             )
 
@@ -766,6 +940,7 @@ def main():
     entry_info.append(f"  |  RSI ~{weekly_rsi:.0f}, Cap=0 (konservativ)", style="dim")
     if entry_factor < 1.0:
         entry_info.append(f"  |  Aktuell x{entry_factor:.2f} - Entries gelten erst ab reifem Zyklus!", style="dim bold")
+    entry_info.append(f"  |  Hist. Zyklen: {len(bear_drawdowns)}", style="dim")
 
     console.print(Panel(entry_table, title="[bold]🎯 Entry-Preis-Rechner (Backtest-validiert)[/bold]",
                         subtitle=entry_info, border_style="green"))
