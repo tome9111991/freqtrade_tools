@@ -497,10 +497,10 @@ DEINE AUFGABEN:
 
 1️⃣ AKTUELLE NACHRICHTEN & EVENTS ANALYSIEREN:
    - Was sind die wichtigsten aktuellen BTC/Krypto-Nachrichten?
-   - Gibt es regulatorische Entwicklungen (SEC, EU MiCA, etc.)?
-   - ETF-Zuflüsse/-Abflüsse (BlackRock IBIT, Fidelity, etc.)?
-   - Gibt es bevorstehende Events (Halving, FOMC, etc.)?
-   - Globale Nachrichten die den Markt beeinflussen könnten (Kriege, Handelskonflikte, Sanktionen, politische Krisen, Naturkatastrophen, etc.)?
+   - Regulatorische Entwicklungen (weltweit, nicht nur USA/EU)?
+   - Institutionelle Zuflüsse/Abflüsse (ETFs, Fonds, börsengehandelte Produkte)?
+   - Bevorstehende Events (Halving, Zentralbank-Entscheidungen, etc.)?
+   - Globale Nachrichten die den Markt beeinflussen könnten (Geopolitik, Handelskonflikte, Krisen, etc.)?
 
 2️⃣ ON-CHAIN DATEN RECHERCHIEREN (bitte selbst aktuelle Werte im Internet suchen):
    Mein Tool erfasst keine On-Chain Daten - bitte recherchiere diese selbst:
@@ -508,30 +508,44 @@ DEINE AUFGABEN:
    - SOPR (Spent Output Profit Ratio)
    - Exchange Netflows (Zu-/Abflüsse von Börsen)
    - Long-Term Holder vs Short-Term Holder Verhalten
-   - Miner-Verhalten (Capitulation? Hash Rate?)
-   - Realized Price vs. Market Price
+   - Realized Price vs. Market Price / Realized Cap vs. Market Cap
    - NUPL (Net Unrealized Profit/Loss)
    - Fear & Greed Index
+   - Active Addresses / Transaktionsvolumen / Mempool-Auslastung
+   - Stablecoin Supply & Flows (Mint/Burn-Trends als Liquiditätsindikator)
+   - Bitcoin Dominance (Kapitalrotation BTC vs. Altcoins)
 
-3️⃣ MAKRO-UMFELD BEWERTEN:
+3️⃣ MINING & NETZWERK-GESUNDHEIT:
+   - Hash Rate Trend
+   - Mining Difficulty & nächstes Difficulty Adjustment
+   - Hash Price (Miner-Profitabilität)
+   - Miner-Verhalten (Kapitulation? Akkumulation? Miner-Reserven?)
+
+4️⃣ DERIVATE-MARKT:
+   - Funding Rates (Perpetual Futures) - positiv/negativ?
+   - Open Interest Trend (Leverage im Markt?)
+   - Liquidation Heatmaps / größte Liquidation Cluster
+   - Long/Short Ratio
+
+5️⃣ MAKRO-UMFELD BEWERTEN:
    - US Dollar Index (DXY) - Trend?
-   - Fed Zinspolitik - Aktuelle Erwartungen?
-   - US-Staatsanleihen (10Y Yield)
-   - Globale Liquidität (M2 Money Supply)
-   - S&P 500 / Nasdaq Korrelation mit BTC
+   - Zinspolitik der großen Zentralbanken (Fed, EZB, etc.) - Aktuelle Erwartungen?
+   - Staatsanleihen-Renditen (US 10Y, global)
+   - Globale Liquidität (Global M2 Money Supply, nicht nur US)
+   - Aktienmarkt-Korrelation mit BTC (S&P 500, Nasdaq, etc.)
    - Geopolitische Risiken
 
-4️⃣ EIGENE EINSCHÄTZUNG:
+6️⃣ EIGENE EINSCHÄTZUNG:
    - Wie ist deine eigene Einschätzung zur aktuellen Marktlage? (Mein Score von {d['score_total']}/100 dient als Referenz)
    - Gibt es Faktoren die besonders wichtig sind und über reine technische Analyse hinausgehen?
    - Was ist dein eigenes Bull/Bear-Szenario für die nächsten 3-6 Monate?
 
-5️⃣ RISIKEN & WARNSIGNALE:
+7️⃣ RISIKEN & WARNSIGNALE:
    - Gibt es akute Risiken, die mein Tool nicht erfasst?
    - Black-Swan-Szenarien die man beachten sollte?
-   - Leverage/Liquidation-Risiken im Markt?
+   - Leverage/Liquidation-Risiken im Markt (Funding Rates, OI)?
 
-6️⃣ DEINE EIGENEN BODEN-ZONEN (WICHTIG!):
+8️⃣ DEINE EIGENEN BODEN-ZONEN (WICHTIG!):
    Basierend auf ALLEN Daten die du gesammelt hast (On-Chain, Makro, News, Technische Analyse),
    erstelle deine eigenen Preiszonen wo der Boden dieses Zyklus liegen könnte.
 
@@ -564,7 +578,7 @@ DEINE AUFGABEN:
       → Begründung: [Was müsste passieren damit wir hier landen?]
       → Strategie: [Was sollte man in dieser Zone tun?]
 
-7️⃣ ZEITLICHE EINSCHÄTZUNG:
+9️⃣ ZEITLICHE EINSCHÄTZUNG:
    - Wann könnte der Boden zeitlich erreicht werden?
    - Gibt es Katalysatoren (Events, Halvings, Fed-Meetings) die den Zeitrahmen beeinflussen?
    - (Referenz: Mein Tool schätzt klassisches Fenster {d['classic_start']} - {d['classic_end']}, institutionell {d['inst_start']} - {d['inst_end']})
@@ -577,6 +591,8 @@ Bitte strukturiere deine Antwort wie folgt:
 
 📰 NEWS-ANALYSE: [Aktuelle relevante Nachrichten und deren Einfluss]
 ⛓️ ON-CHAIN ANALYSE: [Aktuelle On-Chain Metriken die du recherchiert hast, mit konkreten Werten]
+⛏️ MINING & NETZWERK: [Hash Rate, Difficulty, Hash Price, Miner-Verhalten]
+📈 DERIVATE-MARKT: [Funding Rates, Open Interest, Liquidationen, Long/Short Ratio]
 🌍 MAKRO-ANALYSE: [Makroökonomische Faktoren]
 
 🗺️ MEINE BODEN-ZONEN:
@@ -589,9 +605,20 @@ Bitte strukturiere deine Antwort wie folgt:
 ⏳ TIMING: [Zeitliche Einschätzung wann der Boden kommen könnte]
 🎯 EIGENE BEWERTUNG: [Dein eigener Bottom Score und Begründung]
 ⚠️ RISIKEN: [Aktuelle Warnsignale]
-📊 FAZIT: [Deine Gesamteinschätzung und Handlungsempfehlung]
+📊 FAZIT:
+   Die aktuelle Situation in einem Satz: [Ein prägnanter Satz der die Gesamtlage zusammenfasst - Zyklusphase, Sentiment, institutionelle Lage, Makro-Faktoren]
 
-Wichtig: Die obigen technischen Indikatoren und Preisdaten sind zuverlässig berechnet - du musst sie nicht verifizieren. Nutze sie als Referenz für deine eigene Analyse. Nutze bitte aktuelle Echtzeitdaten für On-Chain, Makro und News-Analyse. Gib konkrete Zahlen an wo möglich. Dein Mehrwert liegt in deiner eigenständigen Analyse und dem Einbringen zusätzlicher Datenpunkte die mein Tool nicht erfasst.
+   Handlungsempfehlung (gestuft nach Preiszonen):
+   - Sofort (aktuelle Zone, $XX,XXX-$XX,XXX): XX% des geplanten Budgets per DCA einsetzen. [Begründung, z.B. Fear & Greed Level als historisches Signal]
+   - Bei $XX,XXX-$XX,XXX: Weitere XX% einsetzen. [Begründung, z.B. Realized Price Bereich]
+   - Warten auf [Zeitraum]: [Was muss passieren damit Klarheit entsteht, z.B. Fed-Pivot, Makro-Entspannung]
+
+   Boden-Einschätzung:
+   - Der Boden dieses Zyklus liegt mit XX% Wahrscheinlichkeit im Bereich $XX,XXX-$XX,XXX
+   - Worst-Case-Szenario: $XX,XXX-$XX,XXX bei [Bedingung, z.B. weitere Makro-Verschlechterung] (XX% Wahrscheinlichkeit)
+   - Unter $XX,XXX halte ich für unwahrscheinlich (<XX%), weil [strukturelle Begründung, z.B. ETF-Adoption, institutioneller Boden]
+
+Wichtig: Die obigen technischen Indikatoren und Preisdaten sind zuverlässig berechnet - du musst sie nicht verifizieren. Nutze sie als Referenz für deine eigene Analyse. Nutze bitte aktuelle Echtzeitdaten für On-Chain, Mining, Derivate, Makro und News-Analyse. Gib konkrete Zahlen an wo möglich. Dein Mehrwert liegt in deiner eigenständigen Analyse und dem Einbringen zusätzlicher Datenpunkte die mein Tool nicht erfasst. Falls bestimmte Daten nicht verfügbar sind, kennzeichne dies transparent statt Werte zu schätzen.
 """
     return prompt
 
